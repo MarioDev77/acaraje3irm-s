@@ -52,17 +52,18 @@ router.get(
     const conditions = [];
     const params = [];
     if (status) {
-      conditions.push('status = ?');
+      conditions.push('o.status = ?');
       params.push(status);
     }
     const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
 
     const [orders] = await db.query(
-      `SELECT id, public_order_number, customer_name, customer_phone, delivery_address, payment_method,
-              total_amount_cents, status, created_at
-       FROM orders
+      `SELECT o.id, o.public_order_number, o.customer_name, o.customer_phone, o.delivery_address, o.payment_method,
+              o.total_amount_cents, o.status, o.created_at, p.status AS payment_status
+       FROM orders o
+       LEFT JOIN payments p ON p.order_id = o.id
        ${where}
-       ORDER BY created_at DESC
+       ORDER BY o.created_at DESC
        LIMIT 300`,
       params
     );
@@ -104,7 +105,59 @@ router.get(
        WHERE oi.order_id = ?`,
       [orderId]
     );
-    res.json({ ...orders[0], items });
+
+    // pix_payload não é segredo, mas não tem por que trafegar aqui —
+    // só o status do pagamento interessa pro admin nesta tela.
+    const [payments] = await db.query(
+      'SELECT status, amount_cents, expires_at, confirmed_at FROM payments WHERE order_id = ?',
+      [orderId]
+    );
+
+    res.json({ ...orders[0], items, payment: payments[0] || null });
+  })
+);
+
+// Confirma manualmente o pagamento Pix de um pedido, depois de o admin
+// conferir o comprovante recebido pelo WhatsApp da loja. Não há upload
+// nem armazenamento de comprovante nesse sistema — a conferência é
+// feita fora daqui, direto na conversa do WhatsApp.
+router.patch(
+  '/orders/:id/pix/confirm',
+  asyncHandler(async (req, res) => {
+    const orderId = Number(req.params.id);
+    if (!isPositiveInt(orderId, Number.MAX_SAFE_INTEGER)) {
+      return res.status(400).json({ error: 'ID inválido.' });
+    }
+
+    const [rows] = await db.query(
+      `SELECT o.payment_method, p.status AS payment_status
+       FROM orders o
+       LEFT JOIN payments p ON p.order_id = o.id
+       WHERE o.id = ?`,
+      [orderId]
+    );
+    if (rows.length === 0) return res.status(404).json({ error: 'Pedido não encontrado.' });
+    if (rows[0].payment_method !== 'pix' || !rows[0].payment_status) {
+      return res.status(400).json({ error: 'Este pedido não tem um pagamento Pix associado.' });
+    }
+
+    const [result] = await db.query(
+      `UPDATE payments SET status = 'confirmado', confirmed_by_admin_id = ?, confirmed_at = NOW()
+       WHERE order_id = ? AND status = 'pendente'`,
+      [req.admin.id, orderId]
+    );
+    if (result.affectedRows === 0) {
+      return res.status(400).json({ error: 'Pagamento já estava confirmado ou não está pendente.' });
+    }
+
+    await db.query('INSERT INTO security_logs (admin_id, action, details, ip_address) VALUES (?, ?, ?, ?)', [
+      req.admin.id,
+      'pix_payment_confirmed',
+      `Pedido ${orderId}`,
+      req.ip,
+    ]);
+
+    res.json({ message: 'Pagamento confirmado.' });
   })
 );
 

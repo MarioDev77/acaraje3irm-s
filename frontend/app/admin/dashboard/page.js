@@ -57,6 +57,15 @@ export default function AdminDashboardPage() {
     }
   }
 
+  async function handleConfirmPix(orderId) {
+    try {
+      await api.adminConfirmPixPayment(orderId);
+      loadOrders(statusFilter);
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
   if (!username) return null;
 
   return (
@@ -115,6 +124,24 @@ export default function AdminDashboardPage() {
               <br />
               {new Date(order.created_at).toLocaleString('pt-BR')}
             </div>
+            {order.payment_method === 'pix' && order.payment_status && (
+              <div style={{ margin: '8px 0' }}>
+                <span
+                  className={`status-badge ${order.payment_status === 'confirmado' ? 'payment-confirmed-badge' : 'payment-pending-badge'}`}
+                >
+                  {order.payment_status === 'confirmado' ? 'Pix confirmado' : 'Pix pendente — conferir no WhatsApp'}
+                </span>
+                {order.payment_status === 'pendente' && (
+                  <button
+                    className="admin-logout-btn"
+                    style={{ marginLeft: 8 }}
+                    onClick={() => handleConfirmPix(order.id)}
+                  >
+                    Confirmar pagamento
+                  </button>
+                )}
+              </div>
+            )}
             <select
               className="status-select"
               value={order.status}

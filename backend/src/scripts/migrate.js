@@ -67,6 +67,20 @@ const CREATE_TABLES_SQL = [
     CONSTRAINT fk_item_product FOREIGN KEY (product_id) REFERENCES products(id)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
 
+  `CREATE TABLE IF NOT EXISTS payments (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    order_id BIGINT UNSIGNED NOT NULL UNIQUE,
+    pix_payload TEXT NOT NULL,
+    amount_cents INT UNSIGNED NOT NULL,
+    status ENUM('pendente','confirmado','expirado') NOT NULL DEFAULT 'pendente',
+    confirmed_by_admin_id INT UNSIGNED NULL,
+    confirmed_at DATETIME NULL,
+    expires_at DATETIME NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_payment_order FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
+    CONSTRAINT fk_payment_admin FOREIGN KEY (confirmed_by_admin_id) REFERENCES admin_users(id)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+
   `CREATE TABLE IF NOT EXISTS security_logs (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     admin_id INT UNSIGNED NULL,

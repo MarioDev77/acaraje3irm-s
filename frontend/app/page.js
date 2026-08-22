@@ -416,7 +416,10 @@ function CheckoutSheet({ cartLines, subtotalCents, deliveryFeeCents, totalCents,
         items: cartLines.map((l) => ({ product_id: l.product.id, quantity: l.qty })),
       };
       const result = await api.createOrder(payload);
-      onConfirmed(result);
+      // Guardamos nome/endereço só aqui no navegador, pra poder montar a
+      // mensagem do WhatsApp na tela de confirmação — nada disso é
+      // reenviado nem salvo pelo backend.
+      onConfirmed({ ...result, customer_name: name.trim(), delivery_address: address.trim() });
     } catch (err) {
       setError(err.message);
     } finally {
@@ -510,6 +513,38 @@ function CheckoutSheet({ cartLines, subtotalCents, deliveryFeeCents, totalCents,
 }
 
 function ConfirmationScreen({ order, onBackHome }) {
+  const [copied, setCopied] = useState(false);
+  const isPix = order.payment_method === 'pix' && order.pix;
+
+  async function handleCopyPix() {
+    if (!isPix) return;
+    try {
+      await navigator.clipboard.writeText(order.pix.payload);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // clipboard pode falhar em contexto não seguro; ignora silenciosamente
+    }
+  }
+
+  function handleSendProofWhatsapp() {
+    const linha = (label, value) => `${label}: ${value}`;
+    const mensagem = [
+      'Olá! Segue o comprovante do meu pedido na Acarajé 3 Irmãs.',
+      linha('Pedido nº', order.order_number),
+      order.customer_name ? linha('Nome', order.customer_name) : null,
+      order.delivery_address ? linha('Endereço', order.delivery_address) : null,
+      linha('Total', formatCents(order.total_amount_cents)),
+      '',
+      '(anexe o comprovante aqui)',
+    ]
+      .filter(Boolean)
+      .join('\n');
+    const numeroWhatsapp = order.whatsapp_number || '5575999036961';
+    const url = `https://wa.me/${numeroWhatsapp}?text=${encodeURIComponent(mensagem)}`;
+    window.open(url, '_blank');
+  }
+
   return (
     <div className="confirm-screen">
       <div className="confirm-icon">❤️</div>
@@ -542,6 +577,36 @@ function ConfirmationScreen({ order, onBackHome }) {
           <span>{PAYMENT_LABELS[order.payment_method]?.label || order.payment_method}</span>
         </div>
       </div>
+
+      {isPix && (
+        <>
+          <div className="summary-box" style={{ textAlign: 'center' }}>
+            <p style={{ margin: '0 0 10px', fontWeight: 800 }}>Pague com Pix</p>
+            <div className="qr-box">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={order.pix.qr_code_data_url} alt="QR Code Pix" width={220} height={220} />
+            </div>
+            <div className="pix-code-box">{order.pix.payload}</div>
+            <button className="checkout-btn" onClick={handleCopyPix}>
+              {copied ? 'Copiado!' : 'COPIAR PIX'}
+            </button>
+          </div>
+
+          <div className="summary-box" style={{ textAlign: 'center' }}>
+            <p style={{ margin: '0 0 6px', fontWeight: 800 }}>Envie o comprovante pelo WhatsApp</p>
+            <p style={{ margin: '0 0 12px', fontSize: 13.5, color: 'var(--brown-soft)' }}>
+              Assim que pagar, toque no botão, anexe o print do comprovante e envie — é o mesmo
+              número da chave Pix. A gente confirma seu pedido assim que receber.
+            </p>
+            <button className="btn-whatsapp" onClick={handleSendProofWhatsapp}>
+              <svg viewBox="0 0 32 32" width="20" height="20" fill="currentColor" aria-hidden="true">
+                <path d="M16.004 3C9.377 3 4 8.373 4 15c0 2.29.638 4.43 1.744 6.257L4 29l7.94-1.706A11.94 11.94 0 0 0 16.004 27C22.63 27 28 21.627 28 15S22.63 3 16.004 3Zm0 21.727c-1.99 0-3.845-.58-5.405-1.578l-.388-.242-4.71 1.012 1.03-4.59-.253-.397A9.66 9.66 0 0 1 5.273 15c0-5.912 4.812-10.727 10.73-10.727S26.727 9.088 26.727 15 21.918 24.727 16.004 24.727Zm5.902-8.03c-.324-.163-1.915-.945-2.212-1.053-.297-.108-.513-.163-.729.163-.216.325-.837 1.053-1.026 1.27-.189.216-.378.244-.702.081-.324-.163-1.367-.504-2.605-1.607-.963-.859-1.614-1.92-1.803-2.244-.189-.325-.02-.5.143-.663.146-.146.324-.379.486-.568.163-.19.216-.325.324-.541.108-.216.054-.406-.027-.569-.081-.163-.729-1.758-.999-2.408-.263-.633-.53-.547-.729-.557l-.621-.011c-.216 0-.568.081-.865.406-.297.325-1.135 1.108-1.135 2.703 0 1.595 1.162 3.136 1.324 3.352.163.216 2.288 3.494 5.543 4.9.775.334 1.379.534 1.85.684.777.247 1.484.212 2.043.129.623-.093 1.915-.783 2.185-1.539.27-.756.27-1.404.19-1.539-.081-.135-.297-.216-.621-.379Z" />
+              </svg>
+              Enviar comprovante no WhatsApp
+            </button>
+          </div>
+        </>
+      )}
 
       <button className="back-home-btn" onClick={onBackHome}>
         Fazer novo pedido

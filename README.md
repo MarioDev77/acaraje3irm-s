@@ -22,7 +22,7 @@ sozinho na primeira subida, via migração idempotente).
 ### 2. Backend
 ```bash
 cd backend
-cp .env.example .env   # preencha DB_HOST, DB_USER, DB_PASSWORD, DB_NAME, JWT_SECRET
+cp .env.example .env   # preencha DB_HOST, DB_USER, DB_PASSWORD, DB_NAME, JWT_SECRET, PIX_KEY, WHATSAPP_NUMBER
 npm install
 npm run dev             # http://localhost:3001
 ```
@@ -75,18 +75,38 @@ aleatório (não sequencial) para consulta pública de pedido.
 ## O que mudou de propósito (e por quê)
 
 O sistema anterior era para **retirada agendada na escola**, pago
-antecipadamente só por Pix com comprovante conferido manualmente pelo admin
-(QR Code, upload/foto do comprovante, análise de imagem, disponibilidade por
-data, relatórios PDF/Excel). O novo pedido é um **delivery** com pagamento na
+antecipadamente só por Pix. O novo pedido é um **delivery** com pagamento na
 entrega em três formas (Pix, dinheiro com troco, cartão) — um modelo de
-negócio diferente. Por isso essas features foram **removidas** em vez de
-adaptadas: geração de QR Pix, upload/análise de comprovante, disponibilidade
-diária por produto, calendário de pedidos e relatórios PDF/Excel. O painel
-admin atual cobre o essencial do novo fluxo: dashboard do dia, lista de
-pedidos com filtro por status, atualização de status e log de segurança.
+negócio diferente. Por isso a maior parte das features específicas de escola
+foi **removida**: disponibilidade diária por produto, calendário de pedidos,
+assistente de matemática financeira e relatórios PDF/Excel.
 
-Se quiser esses recursos de volta (ex.: um relatório de vendas, ou confirmação
-de pagamento Pix com comprovante), consigo montar isso numa próxima etapa.
+A geração de QR Code Pix e o envio de comprovante pelo WhatsApp, porém,
+**foram trazidos de volta** (do projeto "Última Fatia"), com uma diferença
+importante: **não existe upload nem armazenamento de comprovante no banco de
+dados**. O fluxo agora é:
+
+1. Ao escolher "Pix" no checkout, o backend gera o payload EMV/BR Code e o
+   QR Code na hora (via `pixService.js`) e devolve pro cliente — só o
+   payload ("copia e cola") é salvo em `payments.pix_payload`, nunca uma
+   imagem de comprovante.
+2. O cliente paga e toca no botão **"Enviar comprovante no WhatsApp"**, que
+   abre uma conversa (`wa.me`) já com o número do pedido e o valor
+   preenchidos — o print do comprovante é anexado e enviado direto pelo
+   WhatsApp da loja, sem passar pelo servidor.
+3. A chave Pix e o número de WhatsApp são o **mesmo número**
+   (`+55 75 99903-6961`), configurados em `PIX_KEY` e `WHATSAPP_NUMBER` no
+   `.env` do backend.
+4. O admin confere o comprovante na própria conversa do WhatsApp e confirma
+   o pagamento manualmente no painel (`PATCH /api/admin/orders/:id/pix/confirm`),
+   o que marca `payments.status = 'confirmado'`.
+
+O painel admin cobre: dashboard do dia, lista de pedidos com filtro por
+status e status do pagamento Pix, confirmação manual do Pix, atualização de
+status do pedido e log de segurança.
+
+Se quiser voltar a ter algum dos recursos removidos (ex.: relatório de
+vendas), consigo montar isso numa próxima etapa.
 
 ## Fluxo do cliente
 
@@ -95,4 +115,3 @@ Bebidas) → adicionar ao carrinho com controle de quantidade → carrinho
 (subtotal + taxa de entrega + total) → checkout (nome, telefone/WhatsApp,
 endereço, referência, observação, forma de pagamento, troco se dinheiro) →
 confirmação com número do pedido.
-# acarajé3irm-s

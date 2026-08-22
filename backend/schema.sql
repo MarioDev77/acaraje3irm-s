@@ -84,7 +84,29 @@ CREATE TABLE order_items (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ------------------------------------------------------------
--- 5. Logs de segurança / auditoria
+-- 5. Pagamentos Pix (payload gerado, sem armazenar a chave)
+--    Não guardamos comprovante nenhum aqui: o cliente envia o
+--    print/comprovante direto pelo WhatsApp da loja, e o admin
+--    confirma manualmente o pagamento na tela de Pedidos depois
+--    de conferir por lá — não existe upload/armazenamento de
+--    comprovante no banco de dados.
+-- ------------------------------------------------------------
+CREATE TABLE payments (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  order_id BIGINT UNSIGNED NOT NULL UNIQUE,
+  pix_payload TEXT NOT NULL,                -- "copia e cola" gerado (não é segredo)
+  amount_cents INT UNSIGNED NOT NULL,
+  status ENUM('pendente','confirmado','expirado') NOT NULL DEFAULT 'pendente',
+  confirmed_by_admin_id INT UNSIGNED NULL,
+  confirmed_at DATETIME NULL,
+  expires_at DATETIME NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_payment_order FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
+  CONSTRAINT fk_payment_admin FOREIGN KEY (confirmed_by_admin_id) REFERENCES admin_users(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ------------------------------------------------------------
+-- 6. Logs de segurança / auditoria
 -- ------------------------------------------------------------
 CREATE TABLE security_logs (
   id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,

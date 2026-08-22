@@ -10,8 +10,10 @@ const {
   isNonNegativeInt,
 } = require('../utils/validators');
 const { calculateOrderTotal, PriceError } = require('../services/priceService');
-const { createOrder, getOrderByToken } = require('../services/orderService');
+const { createOrder, savePayment, getOrderByToken } = require('../services/orderService');
+const { buildPixPayload, buildPixQrCodeDataUrl } = require('../services/pixService');
 const { orderCreationLimiter, orderLookupLimiter } = require('../middleware/rateLimit');
+const env = require('../config/env');
 const logger = require('../utils/logger');
 
 const router = express.Router();
@@ -78,7 +80,7 @@ router.post(
       return res.status(400).json({ error: 'O valor do troco deve ser maior ou igual ao total do pedido.' });
     }
 
-    const { publicOrderNumber, accessToken } = await createOrder({
+    const { orderId, publicOrderNumber, accessToken } = await createOrder({
       customerName: customer_name.trim(),
       customerPhone: customer_phone.trim(),
       deliveryAddress: delivery_address.trim(),
@@ -94,6 +96,25 @@ router.post(
 
     logger.info('Pedido recebido', { publicOrderNumber, totalCents: calculation.totalCents });
 
+    // Se o pagamento for Pix, já geramos o QR Code/"copia e cola" aqui.
+    // Não guardamos nenhum comprovante — o cliente confirma o pagamento
+    // enviando o print direto pelo WhatsApp da loja (mesmo número da
+    // chave Pix); o admin confirma manualmente depois de conferir.
+    let pix = null;
+    if (payment_method === 'pix') {
+      const pixPayload = buildPixPayload(calculation.totalCents, publicOrderNumber);
+      const qrCodeDataUrl = await buildPixQrCodeDataUrl(pixPayload);
+      const expiresAt = new Date(Date.now() + 30 * 60 * 1000); // 30 min para pagar
+
+      await savePayment(orderId, { pixPayload, amountCents: calculation.totalCents, expiresAt });
+
+      pix = {
+        payload: pixPayload,
+        qr_code_data_url: qrCodeDataUrl,
+        expires_at: expiresAt.toISOString(),
+      };
+    }
+
     res.status(201).json({
       order_number: publicOrderNumber,
       access_token: accessToken,
@@ -102,6 +123,8 @@ router.post(
       delivery_fee_cents: calculation.deliveryFeeCents,
       total_amount_cents: calculation.totalCents,
       payment_method,
+      pix,
+      whatsapp_number: env.whatsappNumber,
     });
   })
 );
@@ -119,7 +142,23 @@ router.get(
     if (!order) {
       return res.status(404).json({ error: 'Pedido não encontrado.' });
     }
-    res.json(order);
+
+    // O payload Pix fica salvo (não é segredo); o QR Code em si nunca é
+    // persistido — é regerado aqui a partir do payload sempre que o
+    // pedido é consultado. Nenhum comprovante é armazenado em nenhum
+    // ponto: o cliente envia direto pelo WhatsApp da loja.
+    const { pix_payload, payment_status, payment_expires_at, ...rest } = order;
+    let pix = null;
+    if (order.payment_method === 'pix' && pix_payload) {
+      pix = {
+        payload: pix_payload,
+        qr_code_data_url: await buildPixQrCodeDataUrl(pix_payload),
+        status: payment_status,
+        expires_at: payment_expires_at,
+      };
+    }
+
+    res.json({ ...rest, pix, whatsapp_number: env.whatsappNumber });
   })
 );
 

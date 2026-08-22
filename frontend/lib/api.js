@@ -41,6 +41,7 @@ export const api = {
   adminOrderByNumber: (number) => request(`/api/admin/orders/by-number/${encodeURIComponent(number.trim())}`),
   adminUpdateOrderStatus: (id, status) =>
     request(`/api/admin/orders/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) }),
+  adminConfirmPixPayment: (id) => request(`/api/admin/orders/${id}/pix/confirm`, { method: 'PATCH' }),
 };
 
 export function formatCents(cents) {

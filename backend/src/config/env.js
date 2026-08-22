@@ -32,4 +32,18 @@ module.exports = {
     deliveryFeeCents: Number(process.env.DELIVERY_FEE_CENTS || 200),
     city: process.env.STORE_CITY || 'Itamira - BA',
   },
+
+  // A chave Pix só é lida aqui, no servidor. Nunca é exportada para
+  // nenhuma rota pública nem para o frontend — só o QR Code/"copia e
+  // cola" (payload) já montado é que sai daqui pra fora.
+  pix: {
+    key: required('PIX_KEY'),
+    merchantName: (process.env.PIX_MERCHANT_NAME || 'ACARAJE 3 IRMAS').slice(0, 25),
+    merchantCity: (process.env.PIX_MERCHANT_CITY || 'ITAMIRA BA').slice(0, 15),
+  },
+
+  // Número de WhatsApp para onde o cliente envia o comprovante do Pix.
+  // É o mesmo número usado como chave Pix (telefone) — só o formato
+  // muda: aqui precisa estar só com dígitos + DDI (padrão do link wa.me).
+  whatsappNumber: process.env.WHATSAPP_NUMBER || '5575999036961',
 };
