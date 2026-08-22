@@ -15,6 +15,30 @@ const EMOJI_BY_SLUG = {
   refrigerante_1l: '🥤',
 };
 
+// Fotos reais (Pixabay Content License — uso comercial livre, sem
+// necessidade de atribuição). Usadas no lugar dos emojis-placeholder.
+// Trocar por fotos próprias do estabelecimento assim que houver.
+const IMAGE_BY_SLUG = {
+  acaraje_papel_com_camarao: 'https://cdn.pixabay.com/photo/2017/06/13/21/33/bahian-food-2400205_1280.jpg',
+  acaraje_papel_sem_camarao: 'https://cdn.pixabay.com/photo/2017/06/13/21/33/bahian-food-2400205_1280.jpg',
+  acaraje_prato_com_camarao: 'https://cdn.pixabay.com/photo/2017/09/10/21/29/typical-food-2737065_1280.jpg',
+  acaraje_prato_sem_camarao: 'https://cdn.pixabay.com/photo/2017/09/10/21/29/typical-food-2737065_1280.jpg',
+  acaraje_marmita: 'https://cdn.pixabay.com/photo/2017/06/13/21/33/bahian-food-2400205_1280.jpg',
+  mini_acaraje_10: 'https://cdn.pixabay.com/photo/2017/09/10/21/29/typical-food-2737065_1280.jpg',
+  cerveja_lata: 'https://cdn.pixabay.com/photo/2020/05/20/11/37/beverage-5196011_1280.jpg',
+  refrigerante_lata: 'https://cdn.pixabay.com/photo/2014/09/29/21/29/soda-466542_1280.jpg',
+  refrigerante_1l: 'https://cdn.pixabay.com/photo/2017/08/07/18/58/bottles-2606774_1280.jpg',
+};
+
+function ProductImage({ slug, className }) {
+  const src = IMAGE_BY_SLUG[slug];
+  if (!src) return <div className={className}>{EMOJI_BY_SLUG[slug] || '🌶️'}</div>;
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img src={src} alt="" className={className} style={{ objectFit: 'cover', width: '100%', height: '100%' }} loading="lazy" />
+  );
+}
+
 const BESTSELLER_SLUGS = ['acaraje_papel_com_camarao', 'acaraje_prato_com_camarao', 'acaraje_marmita', 'mini_acaraje_10'];
 
 const PAYMENT_LABELS = {
@@ -123,7 +147,7 @@ export default function HomePage() {
               .filter((p) => BESTSELLER_SLUGS.includes(p.slug))
               .map((p) => (
                 <div key={p.id} className="bestseller-card" onClick={scrollToCatalog}>
-                  <div className="bestseller-emoji">{EMOJI_BY_SLUG[p.slug] || '🌶️'}</div>
+                  <ProductImage slug={p.slug} className="bestseller-emoji" />
                   <div className="bestseller-name">{p.name}</div>
                   <PriceTag cents={p.price_cents} className="bestseller-price" />
                 </div>
@@ -251,7 +275,7 @@ function PriceTag({ cents, className = 'price-display' }) {
 function ProductCard({ product, qty, onAdd, onSetQty }) {
   return (
     <div className="product-card">
-      <div className="product-emoji-box">{EMOJI_BY_SLUG[product.slug] || '🌶️'}</div>
+      <ProductImage slug={product.slug} className="product-emoji-box" />
       <div className="product-info">
         {product.badge && <span className="product-badge">{product.badge}</span>}
         <p className="product-name">{product.name}</p>
