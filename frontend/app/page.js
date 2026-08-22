@@ -15,16 +15,14 @@ const EMOJI_BY_SLUG = {
   refrigerante_1l: '🥤',
 };
 
-// Fotos reais (Pixabay Content License — uso comercial livre, sem
-// necessidade de atribuição). Usadas no lugar dos emojis-placeholder.
-// Trocar por fotos próprias do estabelecimento assim que houver.
+// Fotos reais do estabelecimento (em /public/images).
 const IMAGE_BY_SLUG = {
-  acaraje_papel_com_camarao: 'https://cdn.pixabay.com/photo/2017/06/13/21/33/bahian-food-2400205_1280.jpg',
-  acaraje_papel_sem_camarao: 'https://cdn.pixabay.com/photo/2017/06/13/21/33/bahian-food-2400205_1280.jpg',
-  acaraje_prato_com_camarao: 'https://cdn.pixabay.com/photo/2017/09/10/21/29/typical-food-2737065_1280.jpg',
-  acaraje_prato_sem_camarao: 'https://cdn.pixabay.com/photo/2017/09/10/21/29/typical-food-2737065_1280.jpg',
-  acaraje_marmita: 'https://cdn.pixabay.com/photo/2017/06/13/21/33/bahian-food-2400205_1280.jpg',
-  mini_acaraje_10: 'https://cdn.pixabay.com/photo/2017/09/10/21/29/typical-food-2737065_1280.jpg',
+  acaraje_papel_com_camarao: '/images/acaraje-papel.png',
+  acaraje_papel_sem_camarao: '/images/acaraje-papel.png',
+  acaraje_prato_com_camarao: '/images/acaraje-prato.png',
+  acaraje_prato_sem_camarao: '/images/acaraje-prato.png',
+  acaraje_marmita: '/images/acaraje-marmita.png',
+  mini_acaraje_10: '/images/mini-acaraje-10.png',
   cerveja_lata: 'https://cdn.pixabay.com/photo/2020/05/20/11/37/beverage-5196011_1280.jpg',
   refrigerante_lata: 'https://cdn.pixabay.com/photo/2014/09/29/21/29/soda-466542_1280.jpg',
   refrigerante_1l: 'https://cdn.pixabay.com/photo/2017/08/07/18/58/bottles-2606774_1280.jpg',
