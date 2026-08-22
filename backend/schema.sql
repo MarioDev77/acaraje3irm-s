@@ -48,7 +48,8 @@ CREATE TABLE orders (
   access_token CHAR(43) NOT NULL UNIQUE,                     -- token aleatório p/ o cliente consultar o próprio pedido
   customer_name VARCHAR(120) NOT NULL,
   customer_phone VARCHAR(20) NOT NULL,
-  delivery_address VARCHAR(255) NOT NULL,
+  fulfillment_type ENUM('entrega', 'retirada') NOT NULL DEFAULT 'entrega', -- entrega no endereço ou retirada no estabelecimento
+  delivery_address VARCHAR(255) NULL,                        -- obrigatório apenas quando fulfillment_type = 'entrega'
   reference_point VARCHAR(255) NULL,
   order_note VARCHAR(500) NULL,
   payment_method ENUM('pix', 'dinheiro', 'cartao') NOT NULL,

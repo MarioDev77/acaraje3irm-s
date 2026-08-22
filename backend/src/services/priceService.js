@@ -12,7 +12,7 @@ class PriceError extends Error {
 // Recebe os itens BRUTOS do frontend (product_id, quantity) e recalcula
 // TUDO com base no que está no banco. Nunca usa preço ou nome de produto
 // vindo da requisição.
-async function calculateOrderTotal(items) {
+async function calculateOrderTotal(items, fulfillmentType) {
   const [products] = await db.query('SELECT * FROM products WHERE active = 1');
   const productMap = new Map(products.map((p) => [p.id, p]));
 
@@ -38,7 +38,9 @@ async function calculateOrderTotal(items) {
     });
   }
 
-  const deliveryFeeCents = env.store.deliveryFeeCents;
+  // Retirada no estabelecimento não tem taxa de entrega — o valor só
+  // é cobrado quando o pedido de fato precisa ser entregue.
+  const deliveryFeeCents = fulfillmentType === 'retirada' ? 0 : env.store.deliveryFeeCents;
   const totalCents = subtotalCents + deliveryFeeCents;
 
   return { items: resolvedItems, subtotalCents, deliveryFeeCents, totalCents };

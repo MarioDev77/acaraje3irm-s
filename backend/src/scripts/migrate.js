@@ -41,7 +41,8 @@ const CREATE_TABLES_SQL = [
     access_token CHAR(43) NOT NULL UNIQUE,
     customer_name VARCHAR(120) NOT NULL,
     customer_phone VARCHAR(20) NOT NULL,
-    delivery_address VARCHAR(255) NOT NULL,
+    fulfillment_type ENUM('entrega','retirada') NOT NULL DEFAULT 'entrega',
+    delivery_address VARCHAR(255) NULL,
     reference_point VARCHAR(255) NULL,
     order_note VARCHAR(500) NULL,
     payment_method ENUM('pix', 'dinheiro', 'cartao') NOT NULL,
@@ -115,6 +116,28 @@ async function step1_createTables() {
   logger.info('[migrate] Tabelas verificadas/criadas');
 }
 
+// Instalações que já existiam antes da opção de retirada precisam de
+// ALTER TABLE (CREATE TABLE IF NOT EXISTS não altera tabela já criada).
+// Cada ALTER é tentado individualmente e ignorado se já tiver sido
+// aplicado antes (ex: coluna/duplicidade), pra manter a migração idempotente.
+async function step1b_alterOrdersForPickup() {
+  const alters = [
+    `ALTER TABLE orders ADD COLUMN fulfillment_type ENUM('entrega','retirada') NOT NULL DEFAULT 'entrega' AFTER customer_phone`,
+    `ALTER TABLE orders MODIFY COLUMN delivery_address VARCHAR(255) NULL`,
+  ];
+  for (const sql of alters) {
+    try {
+      await db.query(sql);
+    } catch (err) {
+      // ER_DUP_FIELDNAME (1060) = coluna já existe, ou já está NULL-able — ok, ignora.
+      if (err.errno !== 1060) {
+        logger.error('[migrate] Falha ao alterar tabela orders para suportar retirada', { error: err.message });
+      }
+    }
+  }
+  logger.info('[migrate] Suporte a retirada no estabelecimento verificado');
+}
+
 async function step2_syncCatalog() {
   for (const p of CATALOG) {
     await db.query(
@@ -142,6 +165,7 @@ async function runStep(name, fn) {
 
 async function runMigration() {
   await runStep('createTables', step1_createTables);
+  await runStep('alterOrdersForPickup', step1b_alterOrdersForPickup);
   await runStep('syncCatalog', step2_syncCatalog);
   logger.info('[migrate] Migração concluída (ver acima se algum passo falhou).');
 }

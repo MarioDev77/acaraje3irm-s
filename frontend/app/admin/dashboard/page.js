@@ -120,7 +120,11 @@ export default function AdminDashboardPage() {
             <div className="order-meta">
               {order.customer_name} · {order.customer_phone} · {PAYMENT_LABELS[order.payment_method] || order.payment_method}
               <br />
-              {order.delivery_address}
+              {order.fulfillment_type === 'retirada' ? (
+                <strong>Retirada no estabelecimento</strong>
+              ) : (
+                order.delivery_address
+              )}
               <br />
               {new Date(order.created_at).toLocaleString('pt-BR')}
             </div>

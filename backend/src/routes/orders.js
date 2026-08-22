@@ -6,6 +6,7 @@ const {
   isValidAddress,
   isValidOptionalText,
   isValidPaymentMethod,
+  isValidFulfillmentType,
   isValidItemsArray,
   isNonNegativeInt,
 } = require('../utils/validators');
@@ -26,6 +27,7 @@ router.post(
     const {
       customer_name,
       customer_phone,
+      fulfillment_type,
       delivery_address,
       reference_point,
       order_note,
@@ -34,13 +36,21 @@ router.post(
       items,
     } = req.body || {};
 
+    // Compatibilidade: pedidos antigos sem o campo sempre foram entrega.
+    const fulfillmentType = fulfillment_type || 'entrega';
+
     if (!isValidName(customer_name)) {
       return res.status(400).json({ error: 'Nome inválido.' });
     }
     if (!isValidPhone(customer_phone)) {
       return res.status(400).json({ error: 'Telefone/WhatsApp inválido.' });
     }
-    if (!isValidAddress(delivery_address)) {
+    if (!isValidFulfillmentType(fulfillmentType)) {
+      return res.status(400).json({ error: 'Forma de recebimento inválida.' });
+    }
+    // Endereço só é obrigatório quando o pedido é para entrega — na
+    // retirada o cliente busca no próprio estabelecimento.
+    if (fulfillmentType === 'entrega' && !isValidAddress(delivery_address)) {
       return res.status(400).json({ error: 'Endereço inválido.' });
     }
     if (!isValidOptionalText(reference_point, 255)) {
@@ -63,7 +73,7 @@ router.post(
 
     let calculation;
     try {
-      calculation = await calculateOrderTotal(items);
+      calculation = await calculateOrderTotal(items, fulfillmentType);
     } catch (err) {
       if (err instanceof PriceError) {
         return res.status(err.status).json({ error: err.message });
@@ -83,7 +93,8 @@ router.post(
     const { orderId, publicOrderNumber, accessToken } = await createOrder({
       customerName: customer_name.trim(),
       customerPhone: customer_phone.trim(),
-      deliveryAddress: delivery_address.trim(),
+      fulfillmentType,
+      deliveryAddress: fulfillmentType === 'entrega' ? delivery_address.trim() : null,
       referencePoint: reference_point ? reference_point.trim() : null,
       orderNote: order_note ? order_note.trim() : null,
       paymentMethod: payment_method,
@@ -118,6 +129,7 @@ router.post(
     res.status(201).json({
       order_number: publicOrderNumber,
       access_token: accessToken,
+      fulfillment_type: fulfillmentType,
       items: calculation.items,
       subtotal_cents: calculation.subtotalCents,
       delivery_fee_cents: calculation.deliveryFeeCents,

@@ -58,7 +58,7 @@ router.get(
     const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
 
     const [orders] = await db.query(
-      `SELECT o.id, o.public_order_number, o.customer_name, o.customer_phone, o.delivery_address, o.payment_method,
+      `SELECT o.id, o.public_order_number, o.customer_name, o.customer_phone, o.fulfillment_type, o.delivery_address, o.payment_method,
               o.total_amount_cents, o.status, o.created_at, p.status AS payment_status
        FROM orders o
        LEFT JOIN payments p ON p.order_id = o.id

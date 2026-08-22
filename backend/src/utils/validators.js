@@ -5,6 +5,7 @@ const NAME_REGEX = /^[A-Za-zÀ-ÿ' \-]{2,120}$/;
 // Aceita formatos comuns de telefone/WhatsApp BR: (11) 91234-5678, 11912345678, etc.
 const PHONE_REGEX = /^[0-9() +\-]{8,20}$/;
 const PAYMENT_METHODS = new Set(['pix', 'dinheiro', 'cartao']);
+const FULFILLMENT_TYPES = new Set(['entrega', 'retirada']);
 
 function isValidName(name) {
   return typeof name === 'string' && NAME_REGEX.test(name.trim());
@@ -25,6 +26,10 @@ function isValidOptionalText(text, maxLen) {
 
 function isValidPaymentMethod(method) {
   return typeof method === 'string' && PAYMENT_METHODS.has(method);
+}
+
+function isValidFulfillmentType(type) {
+  return typeof type === 'string' && FULFILLMENT_TYPES.has(type);
 }
 
 function isPositiveInt(n, max = 1000) {
@@ -55,6 +60,7 @@ module.exports = {
   isValidAddress,
   isValidOptionalText,
   isValidPaymentMethod,
+  isValidFulfillmentType,
   isPositiveInt,
   isNonNegativeInt,
   isValidItemsArray,

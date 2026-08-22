@@ -36,6 +36,7 @@ export default function OrderStatusPage() {
   }, [params?.token]);
 
   const isPixPending = order?.payment_method === 'pix' && order?.pix && order.pix.status !== 'confirmado';
+  const isDelivery = order?.fulfillment_type ? order.fulfillment_type === 'entrega' : !!order?.delivery_address;
 
   async function handleCopyPix() {
     if (!order?.pix) return;
@@ -55,7 +56,7 @@ export default function OrderStatusPage() {
       'Olá! Segue o comprovante do meu pedido na Acarajé 3 Irmãs.',
       linha('Pedido nº', order.public_order_number),
       linha('Nome', order.customer_name),
-      linha('Endereço', order.delivery_address),
+      isDelivery ? linha('Endereço', order.delivery_address) : linha('Retirada', 'No estabelecimento'),
       linha('Total', formatCents(order.total_amount_cents)),
       '',
       '(anexe o comprovante aqui)',
@@ -110,7 +111,7 @@ export default function OrderStatusPage() {
             </div>
             <div className="summary-row">
               <span>Taxa de entrega</span>
-              <span>{formatCents(order.delivery_fee_cents)}</span>
+              <span>{isDelivery ? formatCents(order.delivery_fee_cents) : 'Grátis (retirada)'}</span>
             </div>
             <div className="summary-row total">
               <span>Total</span>
@@ -119,8 +120,12 @@ export default function OrderStatusPage() {
           </div>
 
           <div className="summary-box" style={{ textAlign: 'left' }}>
-            <p style={{ margin: '2px 0', fontSize: 13.5 }}><strong>Endereço:</strong> {order.delivery_address}</p>
-            {order.reference_point && <p style={{ margin: '6px 0', fontSize: 13.5 }}><strong>Referência:</strong> {order.reference_point}</p>}
+            {isDelivery ? (
+              <p style={{ margin: '2px 0', fontSize: 13.5 }}><strong>Endereço:</strong> {order.delivery_address}</p>
+            ) : (
+              <p style={{ margin: '2px 0', fontSize: 13.5 }}><strong>Retirada:</strong> No estabelecimento, Itamira - BA</p>
+            )}
+            {isDelivery && order.reference_point && <p style={{ margin: '6px 0', fontSize: 13.5 }}><strong>Referência:</strong> {order.reference_point}</p>}
             <p style={{ margin: '6px 0', fontSize: 13.5 }}><strong>Pagamento:</strong> {PAYMENT_LABELS[order.payment_method] || order.payment_method}</p>
             {order.order_note && <p style={{ margin: '6px 0', fontSize: 13.5 }}><strong>Observações:</strong> {order.order_note}</p>}
           </div>

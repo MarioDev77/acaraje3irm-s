@@ -52,6 +52,7 @@ export default function HomePage() {
   const [cart, setCart] = useState({}); // { [productId]: qty }
   const [sheet, setSheet] = useState(null); // null | 'cart' | 'checkout'
   const [confirmedOrder, setConfirmedOrder] = useState(null);
+  const [fulfillmentType, setFulfillmentType] = useState('entrega'); // 'entrega' | 'retirada'
 
   useEffect(() => {
     api
@@ -79,7 +80,9 @@ export default function HomePage() {
 
   const cartCount = cartLines.reduce((sum, l) => sum + l.qty, 0);
   const subtotalCents = cartLines.reduce((sum, l) => sum + l.subtotal, 0);
-  const deliveryFeeCents = menu?.delivery_fee_cents ?? 200;
+  // Retirada no estabelecimento não paga taxa de entrega.
+  const baseDeliveryFeeCents = menu?.delivery_fee_cents ?? 200;
+  const deliveryFeeCents = fulfillmentType === 'retirada' ? 0 : baseDeliveryFeeCents;
   const totalCents = subtotalCents + (cartCount > 0 ? deliveryFeeCents : 0);
 
   function setQty(productId, qty) {
@@ -197,7 +200,7 @@ export default function HomePage() {
           </div>
 
           <p className="footer-note">
-            Pequeno no tamanho, gigante no sabor! · Entrega em Itamira - BA · Taxa de entrega {formatCents(deliveryFeeCents)}
+            Pequeno no tamanho, gigante no sabor! · Entrega em Itamira - BA (taxa {formatCents(baseDeliveryFeeCents)}) ou retire no estabelecimento sem taxa
           </p>
         </>
       )}
@@ -216,7 +219,10 @@ export default function HomePage() {
           lines={cartLines}
           subtotalCents={subtotalCents}
           deliveryFeeCents={deliveryFeeCents}
+          baseDeliveryFeeCents={baseDeliveryFeeCents}
           totalCents={totalCents}
+          fulfillmentType={fulfillmentType}
+          onSetFulfillmentType={setFulfillmentType}
           onClose={() => setSheet(null)}
           onSetQty={setQty}
           onRemove={removeLine}
@@ -229,7 +235,10 @@ export default function HomePage() {
           cartLines={cartLines}
           subtotalCents={subtotalCents}
           deliveryFeeCents={deliveryFeeCents}
+          baseDeliveryFeeCents={baseDeliveryFeeCents}
           totalCents={totalCents}
+          fulfillmentType={fulfillmentType}
+          onSetFulfillmentType={setFulfillmentType}
           onClose={() => setSheet('cart')}
           onConfirmed={(order) => {
             setConfirmedOrder(order);
@@ -337,7 +346,19 @@ function MarmitaPromo({ product, onAdd }) {
   );
 }
 
-function CartSheet({ lines, subtotalCents, deliveryFeeCents, totalCents, onClose, onSetQty, onRemove, onCheckout }) {
+function CartSheet({
+  lines,
+  subtotalCents,
+  deliveryFeeCents,
+  baseDeliveryFeeCents,
+  totalCents,
+  fulfillmentType,
+  onSetFulfillmentType,
+  onClose,
+  onSetQty,
+  onRemove,
+  onCheckout,
+}) {
   return (
     <div className="overlay" onClick={onClose}>
       <div className="sheet" onClick={(e) => e.stopPropagation()}>
@@ -354,6 +375,15 @@ function CartSheet({ lines, subtotalCents, deliveryFeeCents, totalCents, onClose
           </div>
         ) : (
           <>
+            <div className="form-group">
+              <label className="form-label">Como você quer receber?</label>
+              <FulfillmentToggle
+                value={fulfillmentType}
+                onChange={onSetFulfillmentType}
+                baseDeliveryFeeCents={baseDeliveryFeeCents}
+              />
+            </div>
+
             {lines.map((line) => (
               <div className="cart-item" key={line.product.id}>
                 <div style={{ fontSize: 26 }}>{EMOJI_BY_SLUG[line.product.slug] || '🌶️'}</div>
@@ -382,7 +412,7 @@ function CartSheet({ lines, subtotalCents, deliveryFeeCents, totalCents, onClose
               </div>
               <div className="summary-row">
                 <span>Taxa de entrega</span>
-                <span>{formatCents(deliveryFeeCents)}</span>
+                <span>{fulfillmentType === 'retirada' ? 'Grátis (retirada)' : formatCents(deliveryFeeCents)}</span>
               </div>
               <div className="summary-row total">
                 <span>Total</span>
@@ -391,7 +421,7 @@ function CartSheet({ lines, subtotalCents, deliveryFeeCents, totalCents, onClose
             </div>
 
             <button className="checkout-btn" onClick={onCheckout}>
-              Continuar para entrega
+              {fulfillmentType === 'retirada' ? 'Continuar para retirada' : 'Continuar para entrega'}
             </button>
           </>
         )}
@@ -400,7 +430,40 @@ function CartSheet({ lines, subtotalCents, deliveryFeeCents, totalCents, onClose
   );
 }
 
-function CheckoutSheet({ cartLines, subtotalCents, deliveryFeeCents, totalCents, onClose, onConfirmed }) {
+function FulfillmentToggle({ value, onChange, baseDeliveryFeeCents }) {
+  return (
+    <div className="payment-options">
+      <button
+        type="button"
+        className={`payment-option ${value === 'entrega' ? 'active' : ''}`}
+        onClick={() => onChange('entrega')}
+      >
+        <span className="emoji">🛵</span>
+        Entrega {baseDeliveryFeeCents ? `(+${formatCents(baseDeliveryFeeCents)})` : ''}
+      </button>
+      <button
+        type="button"
+        className={`payment-option ${value === 'retirada' ? 'active' : ''}`}
+        onClick={() => onChange('retirada')}
+      >
+        <span className="emoji">🏠</span>
+        Retirar no local
+      </button>
+    </div>
+  );
+}
+
+function CheckoutSheet({
+  cartLines,
+  subtotalCents,
+  deliveryFeeCents,
+  baseDeliveryFeeCents,
+  totalCents,
+  fulfillmentType,
+  onSetFulfillmentType,
+  onClose,
+  onConfirmed,
+}) {
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
@@ -410,12 +473,15 @@ function CheckoutSheet({ cartLines, subtotalCents, deliveryFeeCents, totalCents,
   const [changeFor, setChangeFor] = useState('');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const isDelivery = fulfillmentType === 'entrega';
 
   async function handleSubmit() {
     setError('');
     if (!name.trim() || name.trim().length < 2) return setError('Informe seu nome.');
     if (!phone.trim() || phone.replace(/\D/g, '').length < 8) return setError('Informe um telefone/WhatsApp válido.');
-    if (!address.trim() || address.trim().length < 5) return setError('Informe o endereço completo de entrega.');
+    if (isDelivery && (!address.trim() || address.trim().length < 5)) {
+      return setError('Informe o endereço completo de entrega.');
+    }
     if (!paymentMethod) return setError('Escolha a forma de pagamento.');
 
     let changeForCents;
@@ -430,8 +496,9 @@ function CheckoutSheet({ cartLines, subtotalCents, deliveryFeeCents, totalCents,
       const payload = {
         customer_name: name.trim(),
         customer_phone: phone.trim(),
-        delivery_address: address.trim(),
-        reference_point: reference.trim() || undefined,
+        fulfillment_type: fulfillmentType,
+        delivery_address: isDelivery ? address.trim() : undefined,
+        reference_point: isDelivery ? reference.trim() || undefined : undefined,
         order_note: note.trim() || undefined,
         payment_method: paymentMethod,
         change_for_cents: changeForCents,
@@ -441,7 +508,11 @@ function CheckoutSheet({ cartLines, subtotalCents, deliveryFeeCents, totalCents,
       // Guardamos nome/endereço só aqui no navegador, pra poder montar a
       // mensagem do WhatsApp na tela de confirmação — nada disso é
       // reenviado nem salvo pelo backend.
-      onConfirmed({ ...result, customer_name: name.trim(), delivery_address: address.trim() });
+      onConfirmed({
+        ...result,
+        customer_name: name.trim(),
+        delivery_address: isDelivery ? address.trim() : null,
+      });
     } catch (err) {
       setError(err.message);
     } finally {
@@ -459,6 +530,10 @@ function CheckoutSheet({ cartLines, subtotalCents, deliveryFeeCents, totalCents,
         </div>
 
         <div className="form-group">
+          <label className="form-label">Como você quer receber?</label>
+          <FulfillmentToggle value={fulfillmentType} onChange={onSetFulfillmentType} baseDeliveryFeeCents={baseDeliveryFeeCents} />
+        </div>
+        <div className="form-group">
           <label className="form-label">Nome</label>
           <input className="form-input" value={name} onChange={(e) => setName(e.target.value)} placeholder="Seu nome completo" />
         </div>
@@ -466,14 +541,25 @@ function CheckoutSheet({ cartLines, subtotalCents, deliveryFeeCents, totalCents,
           <label className="form-label">Telefone / WhatsApp</label>
           <input className="form-input" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="(75) 99999-9999" />
         </div>
-        <div className="form-group">
-          <label className="form-label">Endereço de entrega</label>
-          <input className="form-input" value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Rua, número, bairro" />
-        </div>
-        <div className="form-group">
-          <label className="form-label">Ponto de referência (opcional)</label>
-          <input className="form-input" value={reference} onChange={(e) => setReference(e.target.value)} placeholder="Perto de..." />
-        </div>
+        {isDelivery ? (
+          <>
+            <div className="form-group">
+              <label className="form-label">Endereço de entrega</label>
+              <input className="form-input" value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Rua, número, bairro" />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Ponto de referência (opcional)</label>
+              <input className="form-input" value={reference} onChange={(e) => setReference(e.target.value)} placeholder="Perto de..." />
+            </div>
+          </>
+        ) : (
+          <div className="form-group">
+            <label className="form-label">Retirada no estabelecimento</label>
+            <p style={{ margin: 0, fontSize: 13.5, color: 'var(--brown-soft)' }}>
+              Seu pedido vai te esperar prontinho na Acarajé 3 Irmãs, em Itamira - BA. Sem taxa de entrega!
+            </p>
+          </div>
+        )}
         <div className="form-group">
           <label className="form-label">Observações do pedido (opcional)</label>
           <textarea className="form-textarea" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Sem pimenta, capricha no molho..." />
@@ -516,7 +602,7 @@ function CheckoutSheet({ cartLines, subtotalCents, deliveryFeeCents, totalCents,
           </div>
           <div className="summary-row">
             <span>Taxa de entrega</span>
-            <span>{formatCents(deliveryFeeCents)}</span>
+            <span>{isDelivery ? formatCents(deliveryFeeCents) : 'Grátis (retirada)'}</span>
           </div>
           <div className="summary-row total">
             <span>Total</span>
@@ -537,6 +623,7 @@ function CheckoutSheet({ cartLines, subtotalCents, deliveryFeeCents, totalCents,
 function ConfirmationScreen({ order, onBackHome }) {
   const [copied, setCopied] = useState(false);
   const isPix = order.payment_method === 'pix' && order.pix;
+  const isDelivery = order.fulfillment_type ? order.fulfillment_type === 'entrega' : !!order.delivery_address;
 
   async function handleCopyPix() {
     if (!isPix) return;
@@ -555,7 +642,8 @@ function ConfirmationScreen({ order, onBackHome }) {
       'Olá! Segue o comprovante do meu pedido na Acarajé 3 Irmãs.',
       linha('Pedido nº', order.order_number),
       order.customer_name ? linha('Nome', order.customer_name) : null,
-      order.delivery_address ? linha('Endereço', order.delivery_address) : null,
+      isDelivery && order.delivery_address ? linha('Endereço', order.delivery_address) : null,
+      !isDelivery ? linha('Retirada', 'No estabelecimento') : null,
       linha('Total', formatCents(order.total_amount_cents)),
       '',
       '(anexe o comprovante aqui)',
@@ -588,7 +676,7 @@ function ConfirmationScreen({ order, onBackHome }) {
         </div>
         <div className="summary-row">
           <span>Taxa de entrega</span>
-          <span>{formatCents(order.delivery_fee_cents)}</span>
+          <span>{isDelivery ? formatCents(order.delivery_fee_cents) : 'Grátis (retirada)'}</span>
         </div>
         <div className="summary-row total">
           <span>Total</span>
@@ -598,6 +686,12 @@ function ConfirmationScreen({ order, onBackHome }) {
           <span>Pagamento</span>
           <span>{PAYMENT_LABELS[order.payment_method]?.label || order.payment_method}</span>
         </div>
+        {!isDelivery && (
+          <div className="summary-row">
+            <span>Retirada</span>
+            <span>No estabelecimento</span>
+          </div>
+        )}
       </div>
 
       {isPix && (

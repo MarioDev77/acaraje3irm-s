@@ -16,6 +16,7 @@ function generateAccessToken() {
 async function createOrder({
   customerName,
   customerPhone,
+  fulfillmentType,
   deliveryAddress,
   referencePoint,
   orderNote,
@@ -44,16 +45,17 @@ async function createOrder({
 
     const [orderResult] = await conn.query(
       `INSERT INTO orders
-        (public_order_number, access_token, customer_name, customer_phone, delivery_address,
+        (public_order_number, access_token, customer_name, customer_phone, fulfillment_type, delivery_address,
          reference_point, order_note, payment_method, change_for_cents,
          subtotal_cents, delivery_fee_cents, total_amount_cents, status)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'recebido')`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'recebido')`,
       [
         publicOrderNumber,
         accessToken,
         customerName,
         customerPhone,
-        deliveryAddress,
+        fulfillmentType,
+        deliveryAddress || null,
         referencePoint || null,
         orderNote || null,
         paymentMethod,
@@ -99,7 +101,7 @@ async function savePayment(orderId, { pixPayload, amountCents, expiresAt }) {
 // Consulta segura: SÓ retorna o pedido se o token bater. Nunca por ID sequencial.
 async function getOrderByToken(token) {
   const [rows] = await db.query(
-    `SELECT o.public_order_number, o.customer_name, o.customer_phone, o.delivery_address, o.reference_point,
+    `SELECT o.public_order_number, o.customer_name, o.customer_phone, o.fulfillment_type, o.delivery_address, o.reference_point,
             o.order_note, o.payment_method, o.change_for_cents, o.subtotal_cents, o.delivery_fee_cents,
             o.total_amount_cents, o.status, o.created_at,
             p.pix_payload, p.status AS payment_status, p.expires_at AS payment_expires_at
