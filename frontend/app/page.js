@@ -32,8 +32,10 @@ function ProductImage({ slug, className }) {
   const src = IMAGE_BY_SLUG[slug];
   if (!src) return <div className={className}>{EMOJI_BY_SLUG[slug] || '🌶️'}</div>;
   return (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img src={src} alt="" className={className} style={{ objectFit: 'cover', width: '100%', height: '100%' }} loading="lazy" />
+    <div className={className}>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={src} alt="" className="product-photo" loading="lazy" />
+    </div>
   );
 }
 
